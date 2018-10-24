@@ -22,6 +22,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -147,6 +148,8 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
                     BluetoothDevice selectedDevice = item.getDevice();
                     intent.putExtra(Main2Activity.EXTRAS_DEVICE_NAME, selectedDevice.getName());
                     intent.putExtra(Main2Activity.EXTRAS_DEVICE_ADDRESS, selectedDevice.getAddress());
+                    Log.d("name", selectedDevice.getName());
+                    Log.d("address", selectedDevice.getAddress());
                     startActivity(intent);
 
                     // stop before change Activity

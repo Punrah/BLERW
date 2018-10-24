@@ -8,7 +8,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
@@ -17,12 +19,28 @@ import android.view.Window;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import youten.redo.ble.readwrite.AsyncTask.MyAsyncTask;
+import youten.redo.ble.readwrite.app.AppConfig;
+
 public class Main2Activity extends AppCompatActivity {
-   TextView textView;
+   TextView textView,textViewLokasi,textViewKeterangan,textViewKategori,textViewKodepos;
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     private String mDeviceAddress = "unknow";
@@ -34,19 +52,28 @@ public class Main2Activity extends AppCompatActivity {
     private boolean isNotify = false;
     boolean first=false;
     String nilai="";
-    MediaPlayer mp;
+
+    String lokasi,kodepos,kategori,keterangan,suara;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.activity_main2);
         textView =(TextView) findViewById(R.id.textview);
+        textViewLokasi =(TextView) findViewById(R.id.lokasi);
+        textViewKodepos =(TextView) findViewById(R.id.kode_pos);
+        textViewKategori =(TextView) findViewById(R.id.kategori);
+        textViewKeterangan =(TextView) findViewById(R.id.keterangan);
+
+
 
         Intent intent = getIntent();
-        mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
-        mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
+//        mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
+//        mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
 
-        mp = new MediaPlayer();
+        mDeviceName = "LinKim BLE";
+        mDeviceAddress = "E9:8E:69:5A:1D:B5";
+
         bindService(new Intent(this, BluetoothLeService.class), this.mServiceConnection, Context.BIND_AUTO_CREATE);
         registerReceiver(this.mGattUpdateReceiver, makeGattUpdateIntentFilter());
 
@@ -190,13 +217,131 @@ public class Main2Activity extends AppCompatActivity {
         {
             nilai=nilai+msg;
             String[] nilai2=nilai.split(":");
-            textView.setText(nilai2[1]);
 
-            mp.stop();
-            mp = MediaPlayer.create(this,R.raw.versace);
-            mp.start();
-            nilai="";
+            lokasi="";
+            kodepos="";
+            kategori="";
+            keterangan="";
+            suara="";
+            textView.setText("");
+            textViewLokasi.setText("");
+            textViewKodepos.setText("");
+            textViewKategori.setText("");
+            textViewKeterangan.setText("");
+
+
+            String uuid =nilai2[1].replace("\n", "");
+            new getMotor(uuid).execute();
+            textView.setText(uuid);
+
+
         }
+
+    }
+
+    private class getMotor extends MyAsyncTask {
+        String uuid;
+
+        public getMotor(String uuid)
+        {
+            this.uuid=uuid;
+
+        }
+
+
+
+
+        @Override
+        public Context getContext () {
+            return Main2Activity.this;
+        }
+
+
+
+        @Override
+        public void setSuccessPostExecute() {
+
+            //textView.setText(uuid);
+
+
+
+            String url = "http://www.blind.web.id/admin/assets/uploads/files/"+(suara); // your URL here
+
+            MediaPlayer mediaPlayer = new MediaPlayer();
+            mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+            try {
+                mediaPlayer.setDataSource(url);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            try {
+                mediaPlayer.prepare(); // might take long! (for buffering, etc)
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            mediaPlayer.start();
+            nilai="";
+
+
+            textViewLokasi.setText(lokasi);
+            textViewKodepos.setText(kodepos);
+            textViewKategori.setText(kategori);
+            textViewKeterangan.setText(keterangan);
+
+
+
+        }
+
+        @Override
+        public void setFailPostExecute() {
+
+        }
+
+        public void postData() {
+
+
+            String url = AppConfig.URL+Uri.encode(uuid);
+//            try {
+//                url = URLEncoder.encode(url, "UTF-8");
+//            } catch (UnsupportedEncodingException e) {
+//                e.printStackTrace();
+//            }
+            HttpClient httpclient = new DefaultHttpClient();
+            HttpGet httpGet = new HttpGet(url);
+            try {
+                // Execute HTTP Post Request
+                HttpResponse response = httpclient.execute(httpGet);
+                HttpEntity entity = response.getEntity();
+                String jsonStr = EntityUtils.toString(entity, "UTF-8");
+
+                if (jsonStr != null) {
+                    try {
+                        isSucces=true;
+                        JSONObject obj = new JSONObject(jsonStr);
+
+                        JSONArray jsonArray = obj.getJSONArray("results");
+                        lokasi = jsonArray.getJSONObject(0).getString("lokasi");
+                        kodepos = jsonArray.getJSONObject(0).getString("kodepos");
+                        kategori = jsonArray.getJSONObject(0).getString("kategori");
+                        keterangan = jsonArray.getJSONObject(0).getString("keterangan");
+                        suara = jsonArray.getJSONObject(0).getString("suara");
+
+
+                    } catch (final JSONException e) {
+                        badServerAlert();
+                    }
+                } else {
+                    badServerAlert();
+                }
+            } catch (IOException e) {
+                badInternetAlert();
+            }
+        }
+
+
+
+
+
 
     }
 
